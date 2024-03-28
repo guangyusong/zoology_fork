@@ -72,6 +72,12 @@ for input_seq_len, num_kv_pairs in [
                         "l_max": input_seq_len,
                     },
                 ),
+                "rwkv5": dict(
+                    name="zoology.mixers.rwkv5.RWKV_TimeMix_RWKV5",
+                    kwargs={
+                        "l_max": input_seq_len,
+                    },
+                ),
                 "rwkv6": dict(
                     name="zoology.mixers.rwkv6.RWKV_Tmix_x060",
                     kwargs={
@@ -130,8 +136,7 @@ for input_seq_len, num_kv_pairs in [
                 # "attention",
                 # "hyena",
                 # "rwkv",
-                # "rwkv5",
-                "rwkv6"
+                "rwkv5",
                 # "base_conv",
                 # "h3",
                 # "based",
@@ -159,7 +164,7 @@ for input_seq_len, num_kv_pairs in [
                     max_epochs=64,
                     run_id=f"{sequence_mixer}-seqlen{input_seq_len}-dmodel{d_model}-lr{lr}-kv{num_kv_pairs}",
                     logger=LoggerConfig(
-                        project_name="zoology-rwkv-6",
+                        project_name="zoology-rwkv-5",
                         entity="gpt6"
                     )
 
