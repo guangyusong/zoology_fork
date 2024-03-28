@@ -41,6 +41,8 @@ def main(python_file, outdir, name: str, parallelize: bool, gpus: str):
     spec = importlib.util.spec_from_file_location("config_module", python_file)
     config_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(config_module)
+    print("Loaded config module")
+    print(dir(config_module))  # This will print all attributes of the module
 
     configs = config_module.configs
     for config in configs:

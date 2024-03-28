@@ -1,6 +1,4 @@
 import numpy as np
-from zoology.config import TrainConfig
-from zoology.config import TrainConfig, ModelConfig, DataConfig, FunctionConfig, ModuleConfig
 
 from zoology.config import TrainConfig, ModelConfig, DataConfig, FunctionConfig, ModuleConfig
 

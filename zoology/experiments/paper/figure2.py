@@ -72,6 +72,18 @@ for input_seq_len, num_kv_pairs in [
                         "l_max": input_seq_len,
                     },
                 ),
+                "rwkv5": dict(
+                    name="zoology.mixers.rwkv5.RWKV_TimeMix_RWKV5",
+                    kwargs={
+                        "l_max": input_seq_len,
+                    },
+                ),
+                "rwkv6": dict(
+                    name="zoology.mixers.rwkv6.RWKV_Tmix_x060",
+                    kwargs={
+                        "l_max": input_seq_len,
+                    },
+                ),
                 "base_conv": dict(
                     name="zoology.mixers.base_conv.BaseConv",
                     kwargs={
@@ -121,13 +133,14 @@ for input_seq_len, num_kv_pairs in [
             }
 
             for sequence_mixer in [
-                "attention",
-                "hyena",
-                "rwkv",
-                "base_conv",
-                "h3",
-                "based",
-                "mamba"
+                # "attention",
+                # "hyena",
+                # "rwkv",
+                # "rwkv5",
+                # "base_conv",
+                # "h3",
+                # "based",
+                # "mamba"
             ]:
 
                 if 'mamba' in sequence_mixer:
@@ -151,8 +164,8 @@ for input_seq_len, num_kv_pairs in [
                     max_epochs=64,
                     run_id=f"{sequence_mixer}-seqlen{input_seq_len}-dmodel{d_model}-lr{lr}-kv{num_kv_pairs}",
                     logger=LoggerConfig(
-                        project_name="zoology",
-                        entity="hazy-research"
+                        project_name="zoology-rwkv",
+                        entity="gpt6"
                     )
 
                 )

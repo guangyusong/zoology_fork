@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from tqdm import tqdm
+# from tqdm import tqdm
 import numpy as np
 from einops import rearrange
 
@@ -46,11 +46,12 @@ class Trainer:
 
     def train_epoch(self, epoch_idx: int):
         self.model.train()
-        iterator = tqdm(
-            self.train_dataloader,
-            total=len(self.train_dataloader),
-            desc=f"Train Epoch {epoch_idx}/{self.max_epochs}",
-        )
+        # iterator = tqdm(
+        #     self.train_dataloader,
+        #     total=len(self.train_dataloader),
+        #     desc=f"Train Epoch {epoch_idx}/{self.max_epochs}",
+        # )
+        iterator = self.train_dataloader  # Replace tqdm with a simple iterator
 
         for inputs, targets in iterator:
             inputs, targets = inputs.to(self.device), targets.to(self.device)
@@ -78,7 +79,7 @@ class Trainer:
             self.optimizer.step()
 
             # logging and printing
-            iterator.set_postfix({"loss": loss.item()})
+            # iterator.set_postfix({"loss": loss.item()})
             self.logger.log(
                 {
                     "train/loss": loss,
@@ -95,11 +96,13 @@ class Trainer:
         all_preds = []
         all_targets = []
 
-        with torch.no_grad(), tqdm(
-            total=len(self.test_dataloader),
-            desc=f"Valid Epoch {epoch_idx}/{self.max_epochs}",
-            postfix={"loss": "-", "acc": "-"},
-        ) as iterator:
+        # with torch.no_grad(), tqdm(
+        #     total=len(self.test_dataloader),
+        #     desc=f"Valid Epoch {epoch_idx}/{self.max_epochs}",
+        #     postfix={"loss": "-", "acc": "-"},
+        # ) as iterator:
+        with torch.no_grad():
+            iterator = self.test_dataloader  # Replace tqdm with a simple iterator
             for inputs, targets in self.test_dataloader:
                 inputs, targets = inputs.to(self.device), targets.to(self.device)
                 logits = self.model(inputs)
@@ -112,7 +115,7 @@ class Trainer:
                 # SE: important to
                 all_preds.append(torch.argmax(logits, dim=-1).cpu())
                 all_targets.append(targets.cpu())
-                iterator.update(1)
+                # iterator.update(1)
 
             test_accuracy = compute_accuracy(
                 torch.cat(all_preds, dim=0), torch.cat(all_targets, dim=0)
@@ -123,7 +126,7 @@ class Trainer:
                 "valid/loss": test_loss.item(),
                 "valid/accuracy": test_accuracy.item(),
             }
-            iterator.set_postfix(metrics)
+            # iterator.set_postfix(metrics)
             self.logger.log({"epoch": epoch_idx, **metrics})
         return metrics
 
