@@ -34,7 +34,7 @@ def plot(
     plot_df['model'] = plot_df['model.sequence_mixer.name'].map(model_tag_2_name) + " (K=" + plot_df['model.sequence_mixer.kwargs.feature_dim'].astype(str) + ")"  + " (H=" + plot_df['model.sequence_mixer.kwargs.num_key_value_heads'].astype(str) + ")"
 
 
-    run_dir = "/var/cr05_data/sim_data/code/clean/zoology/"
+    run_dir = "./var/sim_data/code/clean/zoology/"
     sns.set_theme(style="whitegrid")
     g = sns.relplot(
         data=plot_df[plot_df["data.input_seq_len"] <= max_seq_len],

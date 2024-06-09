@@ -41,7 +41,7 @@ data = DataConfig(
     input_seq_len=input_seq_len,
     batch_size=(batch_size, batch_size / 8),
     force_cache=True,
-    cache_dir="/var/cr05_data/sabri_data/zg-synthetics",
+    cache_dir="./var/zoology/zg-synthetics",
     builder={
         "name": "zoology.data.ar_extrapolate.ar_extrapolate",
         "kwargs": {
@@ -199,7 +199,7 @@ for lr in np.logspace(-4, -1, 8):
                         ),
                         sweep_id=sweep_name,
                         run_id=run_id,
-                        predictions_path=f"/var/cr05_data/sim_data/zg-synthetics/predictions/{run_id}",
+                        predictions_path=f"./var/sim_data/zg-synthetics/predictions/{run_id}",
                         collect_predictions=True,
                     )
                     configs.append(config)

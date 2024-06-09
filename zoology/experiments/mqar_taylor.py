@@ -30,7 +30,7 @@ for input_seq_len, num_kv_pairs in [
         vocab_size=VOCAB_SIZE,
         input_seq_len=input_seq_len,
         batch_size=batch_size,
-        cache_dir="/var/cr05_data/sim_data/zg-synthetics",
+        cache_dir="./var/sim_data/zg-synthetics",
         builder={
             "name": "zoology.data.associative_recall.multiquery_ar",
             "kwargs": {
@@ -92,7 +92,7 @@ for input_seq_len, num_kv_pairs in [
                             ),
                             sweep_id=sweep_name,
                             run_id=run_id,
-                            predictions_path=f"/var/cr05_data/sim_data/zg-synthetics/predictions/{run_id}",
+                            predictions_path=f"./var/sim_data/zg-synthetics/predictions/{run_id}",
                             collect_predictions=True,
                         )
                         configs.append(config)

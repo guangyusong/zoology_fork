@@ -35,7 +35,7 @@ data = DataConfig(
     test_configs=test_configs,
     # can pass a tuple if you want a different batch size for train and test
     batch_size=(batch_size, batch_size / 8),
-    cache_dir="/var/cr05_data/sabri_data/zoology"
+    cache_dir="./var/zoology"
 )
 
 # 2. Next, we are going to collect all the different model configs we want to sweep
@@ -86,14 +86,14 @@ for d_model in [
     48,
     64, 
     128, 
-    # 256
+    256
 ]:
     for ftr_dim in [
         8, 
         16, 
         24,
-        # 32, 
-        # 64
+        32, 
+        64
     ]:
         lin_attn = dict(
             name="zoology.mixers.based.Based",
@@ -341,13 +341,13 @@ for model in models:
             learning_rate=lr,
             max_epochs=32,
             logger=LoggerConfig(
-                project_name="zoology",
-                entity="hazy-research"
+                project_name="zoology-2-tests",
+                entity="gpt6"
             ),
             slice_keys=["num_kv_pairs"],
             sweep_id=sweep_name,
             run_id=run_id,
-            predictions_path=f"/var/cr05_data/sim_data/zg-synthetics/predictions/{run_id}",
+            predictions_path=f"./var/sim_data/zg-synthetics/predictions/{run_id}",
             collect_predictions=True,
         )
         configs.append(config)

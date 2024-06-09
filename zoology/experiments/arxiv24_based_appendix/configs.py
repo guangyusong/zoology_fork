@@ -35,7 +35,7 @@ data = DataConfig(
     test_configs=test_configs,
     # can pass a tuple if you want a different batch size for train and test
     batch_size=(batch_size, batch_size / 8),
-    cache_dir="/var/cr05_data/sabri_data/zoology"
+    cache_dir="./var/zoology"
 )
 
 # 2. Next, we are going to collect all the different model configs we want to sweep
@@ -347,7 +347,7 @@ for model in models:
             slice_keys=["num_kv_pairs"],
             sweep_id=sweep_name,
             run_id=run_id,
-            predictions_path=f"/var/cr05_data/sim_data/zg-synthetics/predictions/{run_id}",
+            predictions_path=f"./var/sim_data/zg-synthetics/predictions/{run_id}",
             collect_predictions=True,
         )
         configs.append(config)

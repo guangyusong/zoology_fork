@@ -55,7 +55,10 @@ class MRAAttention(nn.Module):
 
         batch_size, seq_len, dim = X.shape
 
-        mask = None
+        mask = torch.zeros((batch_size, seq_len, seq_len), device=X.device, dtype=X.dtype)
+        mask = -1000.0 * (1.0 - mask.float())
+        # original
+        # mask = None
         #torch.zeros((batch_size, seq_len, seq_len), device=X.device, dtype=X.dtype)
         # mask = -1000.0 * (1.0 - mask.float())  # https://github.com/mlpen/mra-attention/blob/7e08afeb6f34dcb15a7812f45d66e42d9a21bbc5/src/roberta/models/postnorm.py#L84C26-L84C84
 

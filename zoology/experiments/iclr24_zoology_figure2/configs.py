@@ -39,7 +39,7 @@ for input_seq_len, num_kv_pairs in [
         train_configs=[MQARConfig(num_examples=100_000, vocab_size=VOCAB_SIZE, input_seq_len=input_seq_len, **factory_kwargs)],
         test_configs=[MQARConfig(num_examples=3_000, vocab_size=VOCAB_SIZE, input_seq_len=input_seq_len, **factory_kwargs)],
         batch_size=batch_size,
-        cache_dir="/var/cr05_data/sabri_data/zoology",
+        cache_dir="./var/zoology",
         # cache_dir="", # TODO: add a directory to cache your data!
     )
 

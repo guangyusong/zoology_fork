@@ -32,7 +32,7 @@ for input_seq_len, num_kv_pairs in [
         vocab_size=VOCAB_SIZE,
         input_seq_len=input_seq_len,
         batch_size=batch_size,
-        cache_dir="/var/cr05_data/sabri_data/zg-synthetics",
+        cache_dir="./var/zg-synthetics",
         builder={
             "name": "zoology.data.associative_recall.multiquery_ar",
             "kwargs": {
@@ -45,7 +45,7 @@ for input_seq_len, num_kv_pairs in [
     )
 
     for d_model in [
-        # 64, 
+        64, 
         128, 
         256, 
         512
@@ -162,8 +162,8 @@ for input_seq_len, num_kv_pairs in [
                     max_epochs=64,
                     run_id=f"{sequence_mixer}-seqlen{input_seq_len}-dmodel{d_model}-lr{lr}-kv{num_kv_pairs}",
                     logger=LoggerConfig(
-                        project_name="zoology",
-                        entity="hazy-research"
+                        project_name="zoology-2-tests",
+                        entity="gpt6"
                     )
 
                 )

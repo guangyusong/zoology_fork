@@ -22,7 +22,7 @@ def plot(
         data_key,
     ])["valid/accuracy"].max().reset_index()
 
-    run_dir = "/var/cr05_data/sim_data/code/petting-zoo/"
+    run_dir = "./var/sim_data/code/petting-zoo/"
 
     # remove nan 'valid/accuracy' 
     plot_df = plot_df[~plot_df["valid/accuracy"].isna()] 

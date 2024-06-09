@@ -24,7 +24,7 @@ for k in [4, 8, 16, 32, 64, 128]:
         test_configs=test_configs,
         # can pass a tuple if you want a different batch size for train and test
         batch_size=(batch_size, batch_size / 8),
-        cache_dir="/var/cr05_data/sabri/zoology",
+        cache_dir="./var/sabri/zoology",
         force_cache=True
     )
     datas.append(data)
@@ -147,7 +147,7 @@ for data in datas:
                 slice_keys=['input_seq_len'],
                 sweep_id=sweep_name,
                 run_id=run_id,
-                predictions_path=f"/var/cr05_data/sabri_data/zg-synthetics/predictions/{run_id}",
+                predictions_path=f"./var/zoology/zg-synthetics/predictions/{run_id}",
                 collect_predictions=True,
             )
             configs.append(config)

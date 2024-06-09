@@ -22,7 +22,7 @@ def plot(
         "data.input_seq_len",
     ])["valid/accuracy"].max().reset_index()
 
-    run_dir = "/var/cr05_data/sim_data/code/petting-zoo/"
+    run_dir = "./var/sim_data/code/petting-zoo/"
     sns.set_theme(style="whitegrid")
     g = sns.relplot(
         data=plot_df[plot_df["data.input_seq_len"] <= max_seq_len],

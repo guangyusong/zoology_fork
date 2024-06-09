@@ -19,7 +19,7 @@ except:
 
 try:
     import sys
-    sys.path.append('/var/cr05_data/sim_data/code/based/')
+    sys.path.append('./var/sim_data/code/based/')
     from csrc import causal_dot_product  # linear attention cuda kernel
     print(f"Succesfully imported the causal dot product kernel... ")
 except:
