@@ -7,7 +7,7 @@ python -m zoology.launch zoology/experiments/arxiv24_based_figure2/configs.py -p
 
 To create plots:
 ```bash
-python zoology/experiments//arxiv24_based_figure2/plot.py
+python zoology/experiments/arxiv24_based_figure2/plot.py
 ```
 
 ## Errors:
