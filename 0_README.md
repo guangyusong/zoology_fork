@@ -1,11 +1,16 @@
-Notes:
+## Notes:
 * This only works in Python 3.10 because of ray support.
 
 nohup time python -m zoology.launch zoology/experiments/arxiv24_based_figure2/configs.py -p > output.log 2>&1 &
 
 python -m zoology.launch zoology/experiments/arxiv24_based_figure2/configs.py -p
 
-Errors:
+To create plots:
+```bash
+python zoology/experiments//arxiv24_based_figure2/plot.py
+```
+
+## Errors:
 
 Python.h missing
 

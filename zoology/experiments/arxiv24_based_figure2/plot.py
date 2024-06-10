@@ -56,35 +56,14 @@ def plot(
 if __name__ == "__main__" :
     df = fetch_wandb_runs(
         launch_id=[
-            # "default-2024-02-09-04-11-25"
-            "default-2024-02-09-05-44-06",
-            "default-2024-02-09-14-59-58",
-            
-            # all poly
-            # "default-2024-02-09-22-11-46",
-            # "default-2024-02-09-22-35-00",
-            # "default-2024-02-09-23-19-31",
-            
-            # scatter brain
-            "default-2024-03-27-05-21-50",
-
-            # big bird
-            # "default-2024-03-27-16-03-34",
-            "default-2024-03-27-20-28-57",
-
-            # nystromformer
-            # "default-2024-03-27-16-47-54",
-            "default-2024-03-27-18-10-57"
-
-
-
+            "default-2024-06-09-23-54-45"
         ], 
-        project_name="zoology"
+        project_name="zoology-2-tests"
     )
+    # original
+    # df = df[df["model.name"].isin(["scatter-brain", "sliding-window-attention", "based", "big-bird", "nystromformer"])]
 
-    df = df[df["model.name"].isin(["scatter-brain", "sliding-window-attention", "based", "big-bird", "nystromformer"])]
-
-    # # df["data.input_seq_len"] = df["data.input_seq_len"].fillna(df["data.0.input_seq_len"])
+    # df["data.input_seq_len"] = df["data.input_seq_len"].fillna(df["data.0.input_seq_len"])
     plot(df=df)
 
     plt.savefig("results.png")

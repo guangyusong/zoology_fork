@@ -56,19 +56,9 @@ def plot(
 if __name__ == "__main__" :
     df = fetch_wandb_runs(
         launch_id=[
-            # "default-2023-10-25-22-20-38", 
-            # "default-2023-10-26-19-09-31",
-            # "default-2023-10-27-04-13-56",
-            # "default-2023-10-29-17-31-26",
-            # "default-2023-11-12-00-31-44",
-            # "default-2023-11-13-00-31-15",
-            # "default-2023-11-13-00-42-27"
-
-            # "default-2024-02-08-20-16-21"
-            # "default-2024-02-08-23-04-42"
-            "default-2024-02-09-04-36-18"
+            "default-2024-06-09-23-54-45"
         ], 
-        project_name="zoology"
+        project_name="zoology-2-tests"
     )
 
     # df["data.input_seq_len"] = df["data.input_seq_len"].fillna(df["data.0.input_seq_len"])
