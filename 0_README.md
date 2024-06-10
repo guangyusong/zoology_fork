@@ -23,6 +23,10 @@ For Mamba to work
 
 ```bash
 pip install wheel
-pip install causal_conv1d
+pip install mamba-ssm==1.2.0.post1
+pip install causal_conv1d==1.1.1
 ```
 
+
+Mamba:
+python -m zoology.launch zoology/experiments/examples/mamba.py
