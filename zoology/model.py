@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from torchvision.ops import StochasticDepth
 
 from zoology.config import ModelConfig
+from zoology.mixers.rwkv_goldfinch.tmix import TimeMixState
 
 
 class TokenEmbeddings(nn.Module):
@@ -98,7 +99,6 @@ def _init_weights(
 
 
 class TransformerBlock(nn.Module):
-
     def __init__(self, config: ModelConfig, layer_idx: int):
         super().__init__()
 
@@ -117,22 +117,30 @@ class TransformerBlock(nn.Module):
         self.drop_path2 = StochasticDepth(config.drop_path, mode="row")
         self.norm2 = nn.LayerNorm(config.d_model)
 
-    def forward(self, hidden_states, residual=None):
+    def forward(self, hidden_states, residual=None, xo=None, kv_cache=None, last_time_mix_state=None):
         dropped = self.drop_path1(self.dropout1(hidden_states))
         residual = (dropped + residual) if residual is not None else dropped
         hidden_states = self.norm1(residual.to(dtype=self.norm1.weight.dtype))
-        hidden_states = self.sequence_mixer(hidden_states)
+
+        # Ensure xo, kv_cache, and last_time_mix_state are passed to sequence_mixer
+        if xo is None:
+            xo = hidden_states  # Or derive xo from hidden_states if necessary
+        if kv_cache is None:
+            kv_cache = torch.zeros_like(hidden_states)  # Initialize kv_cache as a tensor of zeros
+        if last_time_mix_state is None:
+            last_time_mix_state = TimeMixState(torch.zeros_like(hidden_states), torch.zeros_like(hidden_states[:, -1]))  # Placeholder initialization
+
+        hidden_states, last_time_mix_state = self.sequence_mixer(hidden_states, xo, kv_cache, last_time_mix_state)
             
         dropped = self.drop_path2(self.dropout2(hidden_states))
         residual = (dropped + residual) if residual is not None else dropped
         hidden_states = self.norm2(residual.to(dtype=self.norm2.weight.dtype))
         hidden_states = self.state_mixer(hidden_states)
-        return hidden_states, residual
+        return hidden_states, residual, kv_cache, last_time_mix_state
 
 
 class LMBackbone(nn.Module):
     def __init__(self, config: ModelConfig):
-
         super().__init__()
         self.embeddings = TokenEmbeddings(
             config.d_model, 
@@ -161,13 +169,17 @@ class LMBackbone(nn.Module):
             position_ids=position_ids,
         )
         residual = None
+        xo = None  
+        batch_size, seq_len, d_model = hidden_states.shape
+        kv_cache = torch.zeros(batch_size, seq_len, d_model, device=hidden_states.device)  # Initialize kv_cache with the correct shape
+        last_time_mix_state = TimeMixState(torch.zeros_like(hidden_states), torch.zeros_like(hidden_states[:, -1]))  # Initialize last_time_mix_state
         for layer in self.layers:
-            hidden_states, residual = layer(hidden_states, residual)
+            hidden_states, residual, kv_cache, last_time_mix_state = layer(hidden_states, residual, xo, kv_cache, last_time_mix_state)
+            xo = hidden_states 
         dropped = self.drop_f(hidden_states)
         residual = (dropped + residual) if residual is not None else dropped
         hidden_states = self.ln_f(residual.to(dtype=self.ln_f.weight.dtype))
         return hidden_states
-
 
 class LanguageModel(nn.Module):
     def __init__(self, config: ModelConfig):
@@ -186,9 +198,6 @@ class LanguageModel(nn.Module):
         # tie weights
         self.lm_head.weight = self.backbone.embeddings.word_embeddings.weight
 
-    def forward(
-        self, input_ids, position_ids=None, state=None
-    ): 
+    def forward(self, input_ids, position_ids=None, state=None):
         hidden_states = self.backbone(input_ids, position_ids=position_ids)
         return self.lm_head(hidden_states)
-        
