@@ -102,7 +102,13 @@ class TransformerBlock(nn.Module):
     def __init__(self, config: ModelConfig, layer_idx: int):
         super().__init__()
 
-        self.sequence_mixer = config.sequence_mixer.instantiate(
+        first_cache_once_layer_id = config.n_layers if not config.sequence_mixer2 else 2 * config.n_layers // 3 # FIXME - copied code
+        if layer_idx < first_cache_once_layer_id:
+            sequence_mixer_cls = config.sequence_mixer
+        else:
+            sequence_mixer_cls = config.sequence_mixer2
+
+        self.sequence_mixer = sequence_mixer_cls.instantiate(
             d_model=config.d_model,
             layer_idx=layer_idx,
         )
@@ -138,6 +144,9 @@ class TransformerBlock(nn.Module):
         hidden_states = self.state_mixer(hidden_states)
         return hidden_states, residual, kv_cache, last_time_mix_state
 
+def rms_norm(x, eps:float = 1e-8): # FIXME - copied code
+    rms_norm = (x.size(-1) ** -0.5) * x.norm(2, dim=-1, keepdim=True)
+    return x / (rms_norm + eps)
 
 class LMBackbone(nn.Module):
     def __init__(self, config: ModelConfig):
@@ -153,6 +162,9 @@ class LMBackbone(nn.Module):
         elif config.block_type == 'MambaBlock':
             from zoology.mixers.mamba import MambaBlock
             block_cls = MambaBlock
+
+        self.first_cache_once_layer_id = config.n_layers if not config.sequence_mixer2 else 2 * config.n_layers // 3 # FIXME - copied code
+        
         self.layers = nn.ModuleList(
             [
                 block_cls(config=config, layer_idx=i)
@@ -169,13 +181,22 @@ class LMBackbone(nn.Module):
             position_ids=position_ids,
         )
         residual = None
-        xo = None  
+        xo = hidden_states # FIXME - needs layer norm, not sure it has it.
+        # annoying historical artifact puts RWKV embedding ln in first block
+        if hasattr(self.layers[0], 'sequence_mixer') and hasattr(self.layers[0].sequence_mixer, 'ln0'):
+            xo = self.layers[0].sequence_mixer.ln0(xo)
         batch_size, seq_len, d_model = hidden_states.shape
-        kv_cache = torch.zeros(batch_size, seq_len, d_model, device=hidden_states.device)  # Initialize kv_cache with the correct shape
+        k_cache = torch.zeros(batch_size, seq_len, d_model, device=hidden_states.device)  # Initialize kv_cache with the correct shape
         last_time_mix_state = TimeMixState(torch.zeros_like(hidden_states), torch.zeros_like(hidden_states[:, -1]))  # Initialize last_time_mix_state
-        for layer in self.layers:
-            hidden_states, residual, kv_cache, last_time_mix_state = layer(hidden_states, residual, xo, kv_cache, last_time_mix_state)
-            xo = hidden_states 
+        
+        for layer_id, layer in enumerate(self.layers):
+            hidden_states, residual, k_cache, last_time_mix_state = layer(hidden_states, residual, xo, k_cache, last_time_mix_state)
+            if layer_id == self.first_cache_once_layer_id:
+                # compress K-Cache, then decompress it here
+                compressed_kv_cache = self.w_kv_cache_a(hidden_states)
+                c = torch.cat([xo, compressed_kv_cache],dim=-1)
+                k_cache = rms_norm(self.w_kv_cache_b(c))
+
         dropped = self.drop_f(hidden_states)
         residual = (dropped + residual) if residual is not None else dropped
         hidden_states = self.ln_f(residual.to(dtype=self.ln_f.weight.dtype))

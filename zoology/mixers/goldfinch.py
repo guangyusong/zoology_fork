@@ -11,66 +11,10 @@ import math
 from typing import Tuple
 
 from zoology.mixers.rwkv_goldfinch.rotary import generate_rotary_embedding, generate_binary_rotary_embedding, apply_rotary_embedding
+from zoology.mixers.rwkv_goldfinch.norm import rms_norm
 
-def causal_bias_mask(T):
-    return torch.full((T, T), float('-inf')).triu(1)
-
-def alibi_mask(T, H):
-    bias = (torch.arange(T)[None, :] - torch.arange(T)[:, None]).float() # (T, T)
-    bias = bias + causal_bias_mask(T) # (T, T)
-    bias = bias.expand(H, -1, -1) # (H, T, T)
-    head_bias_slopes = (2 ** torch.linspace(-8.0/H, -8.0, H)).unsqueeze(-1).unsqueeze(-1) # (H, 1, 1)
-    bias = bias * head_bias_slopes # (H, T, T)
-    return bias
-
-class AlibiMask(nn.Module):
-    def __init__(self, block_size : int, n_heads : int, layer_idx : int):
-        super().__init__()
-        T = block_size
-        H = n_heads
-        self.register_buffer('mask', alibi_mask(T, H))
-
-    def forward(self, q:Tensor):
-        return self.mask[:, :q.size(-2), :q.size(-2)]
-
-class RMSNorm(nn.Module):
-    def __init__(self, dim : int, weight_scaling : bool = True, eps = 1e-8):
-        super().__init__()
-        self.eps = eps
-        self.dim = dim
-        starting_scale = dim ** -0.5
-        if weight_scaling:
-            self.register_parameter("scale", nn.Parameter(torch.ones(dim) * starting_scale))
-        else:
-            self.scale = starting_scale
-
-    def forward(self, x):
-        assert(self.dim == x.size(-1))
-        rms_norm = self.scale * x.norm(2, dim=-1, keepdim=True)
-        return x / rms_norm.clamp(self.eps)
-    
-def rms_norm(x, eps:float = 1e-8):
-    rms_norm = (x.size(-1) ** -0.5) * x.norm(2, dim=-1, keepdim=True)
-    return x / (rms_norm + eps)
-
-class Norm(nn.Module):
-    def __init__(self, dim : int, weight_scaling : bool = True, eps = 1e-8):
-        super().__init__()
-        self.eps = eps
-        if weight_scaling:
-            self.register_parameter("scale", nn.Parameter(torch.ones(dim)))
-        else:
-            self.scale = 1
-
-    def forward(self, x):
-        return self.scale * x / x.norm(2, dim=-1, keepdim=True).clamp(self.eps)
-
-def l2_norm(x, eps:float = 1e-8):
-    # assumes that vector 'normally' has length 1, not length vec.size(-1)**0.5 (which would be if every component had an average absolute value of 1!)
-    return x / (x.norm(2, dim=-1, keepdim=True) + eps)
-
-class RWKV_Tmix_poco(MyModule):
-    def __init__(self, l_max: int, d_model, layer_idx, n_layer = 12):
+class GPTAlpha_Tmix_goco(MyModule):
+    def __init__(self, l_max: int, d_model, layer_idx, angles, bias_mask, n_layer = 12):
         super().__init__()
         self.layer_idx = layer_idx
         self.d_model = d_model
@@ -118,13 +62,16 @@ class RWKV_Tmix_poco(MyModule):
         self.ln_x = nn.LayerNorm(self.dim_att)
 
         self.time_shift = nn.ZeroPad2d((0, 0, 1, -1))
+        
+        self.angles = angles
+        self.bias_mask = bias_mask
 
-        #self.bias_mask = AlibiMask(self.ctx_len, self.n_kv_head, layer_idx)
+    def shift_cat(self, x):
+        return torch.cat([x[:, :1], x[:, :-1]], dim=1)
 
-        self.angles = generate_binary_rotary_embedding(self.ctx_len * 2, self.dim_att // self.n_head)
 
     @MyFunction
-    def forward(self, x, xo, kv_cache, last_time_mix_state:TimeMixState):
+    def forward(self, x, xo, k_cache, last_time_mix_state:TimeMixState):
         B, T, C = x.size()
         H = self.n_head
         K = C // H
@@ -136,14 +83,6 @@ class RWKV_Tmix_poco(MyModule):
         xxx = x + dxprev * self.time_maa_x
         mq = torch.tanh(xxx @ self.time_maa_q_w1) @ self.time_maa_q_w2
 
-        #k, v = kv_cache.chunk(2, dim=-1)
-        k = kv_cache
-        # dv_prev = self.time_shift(v) - v
-        # xxx = v + dv_prev * self.time_maa_v_cache
-        # xxx = torch.tanh(xxx @ self.time_maa_kv_w1).view(B*x.size(1), self.time_maa_kv_w2.size(0), -1).transpose(0, 1)
-        # xxx = torch.bmm(xxx, self.time_maa_kv_w2).view(self.time_maa_kv_w2.size(0), B, x.size(1), C)
-        # mk, mv = xxx.unbind(dim=0)
-
         xo = rms_norm(xo)
         dxo_prev = self.time_shift(xo) - xo
         xxx = xo + dxo_prev * self.time_maa_v_cache
@@ -151,8 +90,8 @@ class RWKV_Tmix_poco(MyModule):
         xxx = torch.bmm(xxx, self.time_maa_kv_w2).view(self.time_maa_kv_w2.size(0), B, xo.size(1), C)
         mk, mv = xxx.unbind(dim=0)
 
+        k = k_cache
         dkprev = self.time_shift(k) - k
-        #v = xm
         v = xo
         dvprev = self.time_shift(v) - v      
 
@@ -172,19 +111,17 @@ class RWKV_Tmix_poco(MyModule):
         q = q.view(B,-1,H,K).transpose(1,2)
         k = k.view(B,-1,H,K).transpose(1,2)
         v = v.view(B,-1,H,V).transpose(1,2)
+        
+        if self.angles is not None:
+            self.angles = self.angles.to(x.device)
+            q, k = apply_rotary_embedding(q, k, self.angles)
 
-        #self.angles = self.angles.to(x.device)
-        #q, k = apply_rotary_embedding(q, k, self.angles)
 
         # causality MUST be enforced for longer runs because even though we won't use the results at t-1 the next chanmix WILL for its tokenshift!
         # this is also why we must allow through the last MANY time-steps if we have that many, so chanmix receives both of these and can lerp between those results!
-        # the results can tokenshift their way forward up to one full timestep each layer via chanmix, so we really have to keep up to all N poco layers around
+        # the results can tokenshift their way forward up to one full timestep each layer via chanmix, so we really have to keep up to all N goldfinch layers around
 
         x = nn.functional.scaled_dot_product_attention(q,k,v,is_causal=q.size(-2)>1)
-        #x = nn.functional.scaled_dot_product_attention(q,k,v,is_causal=False,attn_mask=self.bias_mask(q))
-
-        #x = x + v2
-        #x = F.softmax(q @ k.mT + torch.full((T, T), float('-inf'), dtype=x.dtype, device=x.device).triu(1), dim=-1) @ v + v2
 
         x = x.transpose(1,2).reshape(B,-1,C)
        
