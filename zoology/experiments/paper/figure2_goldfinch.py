@@ -78,8 +78,8 @@ for input_seq_len, num_kv_pairs in [
                         "l_max": input_seq_len,
                     },
                 ),
-                "goldfinch": dict(
-                    name="zoology.mixers.goldfinch.RWKV_Tmix_poco",
+                "tmix_x060b2": dict(
+                    name="zoology.mixers.tmix_x060b2.RWKV_Tmix_x060b2",
                     kwargs={
                         "l_max": input_seq_len,
                     },
@@ -138,11 +138,11 @@ for input_seq_len, num_kv_pairs in [
                 # "rwkv",
                 # "rwkv5",
                 # "rwkv6"
-                # "base_conv",gol
+                # "base_conv",
                 # "h3",
                 # "based",
                 # "mamba",
-                "goldfinch"
+                "tmix_x060b2"
             ]:
 
                 if 'mamba' in sequence_mixer:
@@ -157,6 +157,12 @@ for input_seq_len, num_kv_pairs in [
                     max_position_embeddings=input_seq_len if sequence_mixer == "attention" else 0,
                     vocab_size=VOCAB_SIZE,
                     sequence_mixer=MIXERS[sequence_mixer],
+                    sequence_mixer2=dict(
+                        name="zoology.mixers.goldfinch.GPTAlpha_Tmix_goco",
+                        kwargs={
+                            "l_max": input_seq_len,
+                        }
+                    ),
                     state_mixer=dict(name="torch.nn.Identity", kwargs={})
                 )
                 config = TrainConfig(
