@@ -7,6 +7,7 @@ from torchvision.ops import StochasticDepth
 
 from zoology.config import ModelConfig
 from zoology.mixers.rwkv_goldfinch.tmix import TimeMixState
+from zoology.mixers.rwkv_goldfinch.norm import rms_norm
 
 
 class TokenEmbeddings(nn.Module):
@@ -24,7 +25,7 @@ class TokenEmbeddings(nn.Module):
         """
         GPT-2 Learnable Token and Position Embeddings.
         If max_position_embeddings <= 0, there's no position embeddings
-        Wwe embed to word_embe_proj_dim dimension then project up to embed_dim
+        We embed to word_embe_proj_dim dimension then project up to embed_dim
         """
         super().__init__()
         self.device = device
@@ -123,30 +124,26 @@ class TransformerBlock(nn.Module):
         self.drop_path2 = StochasticDepth(config.drop_path, mode="row")
         self.norm2 = nn.LayerNorm(config.d_model)
 
-    def forward(self, hidden_states, residual=None, xo=None, kv_cache=None, last_time_mix_state=None):
+    def forward(self, hidden_states, residual=None, xo=None, k_cache=None, last_time_mix_state=None):
+        # Ensure xo, k_cache, and last_time_mix_state are passed to sequence_mixer
+        if xo is None:
+            xo = hidden_states  # Or derive xo from hidden_states if necessary
+        if k_cache is None:
+            k_cache = torch.zeros_like(hidden_states)  # Initialize k_cache as a tensor of zeros
+        if last_time_mix_state is None:
+            last_time_mix_state = TimeMixState(torch.zeros_like(hidden_states), torch.zeros_like(hidden_states[:, -1]))  # Placeholder initialization
+
         dropped = self.drop_path1(self.dropout1(hidden_states))
         residual = (dropped + residual) if residual is not None else dropped
         hidden_states = self.norm1(residual.to(dtype=self.norm1.weight.dtype))
 
-        # Ensure xo, kv_cache, and last_time_mix_state are passed to sequence_mixer
-        if xo is None:
-            xo = hidden_states  # Or derive xo from hidden_states if necessary
-        if kv_cache is None:
-            kv_cache = torch.zeros_like(hidden_states)  # Initialize kv_cache as a tensor of zeros
-        if last_time_mix_state is None:
-            last_time_mix_state = TimeMixState(torch.zeros_like(hidden_states), torch.zeros_like(hidden_states[:, -1]))  # Placeholder initialization
-
-        hidden_states, last_time_mix_state = self.sequence_mixer(hidden_states, xo, kv_cache, last_time_mix_state)
+        hidden_states, last_time_mix_state = self.sequence_mixer(hidden_states, xo, k_cache, last_time_mix_state)
             
         dropped = self.drop_path2(self.dropout2(hidden_states))
         residual = (dropped + residual) if residual is not None else dropped
         hidden_states = self.norm2(residual.to(dtype=self.norm2.weight.dtype))
         hidden_states = self.state_mixer(hidden_states)
-        return hidden_states, residual, kv_cache, last_time_mix_state
-
-def rms_norm(x, eps:float = 1e-8): # FIXME - copied code
-    rms_norm = (x.size(-1) ** -0.5) * x.norm(2, dim=-1, keepdim=True)
-    return x / (rms_norm + eps)
+        return hidden_states, residual, k_cache, last_time_mix_state
 
 class LMBackbone(nn.Module):
     def __init__(self, config: ModelConfig):
@@ -186,16 +183,16 @@ class LMBackbone(nn.Module):
         if hasattr(self.layers[0], 'sequence_mixer') and hasattr(self.layers[0].sequence_mixer, 'ln0'):
             xo = self.layers[0].sequence_mixer.ln0(xo)
         batch_size, seq_len, d_model = hidden_states.shape
-        k_cache = torch.zeros(batch_size, seq_len, d_model, device=hidden_states.device)  # Initialize kv_cache with the correct shape
+        k_cache = torch.zeros(batch_size, seq_len, d_model, device=hidden_states.device)  # Initialize k_cache with the correct shape
         last_time_mix_state = TimeMixState(torch.zeros_like(hidden_states), torch.zeros_like(hidden_states[:, -1]))  # Initialize last_time_mix_state
         
         for layer_id, layer in enumerate(self.layers):
             hidden_states, residual, k_cache, last_time_mix_state = layer(hidden_states, residual, xo, k_cache, last_time_mix_state)
             if layer_id == self.first_cache_once_layer_id:
                 # compress K-Cache, then decompress it here
-                compressed_kv_cache = self.w_kv_cache_a(hidden_states)
-                c = torch.cat([xo, compressed_kv_cache],dim=-1)
-                k_cache = rms_norm(self.w_kv_cache_b(c))
+                compressed_k_cache = self.w_k_cache_a(hidden_states)
+                c = torch.cat([xo, compressed_k_cache],dim=-1)
+                k_cache = rms_norm(self.w_k_cache_b(c))
 
         dropped = self.drop_f(hidden_states)
         residual = (dropped + residual) if residual is not None else dropped

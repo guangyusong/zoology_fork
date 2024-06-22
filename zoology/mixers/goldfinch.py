@@ -14,7 +14,7 @@ from zoology.mixers.rwkv_goldfinch.rotary import generate_rotary_embedding, gene
 from zoology.mixers.rwkv_goldfinch.norm import rms_norm
 
 class GPTAlpha_Tmix_goco(MyModule):
-    def __init__(self, l_max: int, d_model, layer_idx, angles, bias_mask, n_layer = 12):
+    def __init__(self, l_max: int, d_model, layer_idx, angles=None, bias_mask=None, n_layer = 12):
         super().__init__()
         self.layer_idx = layer_idx
         self.d_model = d_model

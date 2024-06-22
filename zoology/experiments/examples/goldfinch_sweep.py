@@ -20,7 +20,7 @@ for lr in np.logspace(-4, -2, 10):
             force_cache=False
         ),
         model=ModelConfig(
-            sequence_mixer=ModuleConfig(name='zoology.mixers.rwkv6.RWKV_Tmix_x060', kwargs={'l_max': 64}),
+            sequence_mixer=ModuleConfig(name='zoology.mixers.tmix_x060b2.RWKV_Tmix_x060b2', kwargs={'l_max': 64}),
             sequence_mixer2=ModuleConfig(name='zoology.mixers.goldfinch.GPTAlpha_Tmix_goco', kwargs={'l_max': 64}),
             state_mixer=ModuleConfig(name='torch.nn.Identity', kwargs={}),
             d_model=64,
