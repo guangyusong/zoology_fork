@@ -69,6 +69,7 @@ if 'x060' in os.environ["RWKV_MODEL_TYPE"]:
         def backward(ctx, gy):
             with torch.no_grad():
                 dtype = ctx.dtype
+                gy = gy.float()
                 assert gy.dtype == dtype
                 B = ctx.B
                 T = ctx.T
@@ -78,12 +79,14 @@ if 'x060' in os.environ["RWKV_MODEL_TYPE"]:
                     gy = gy.contiguous()
                 assert gy.is_contiguous()
                 r, k, v, w, u = ctx.saved_tensors
+                r, k, v, w, u = r.float(), k.float(), v.float(), w.float(), u.float()
                 gr = torch.empty((B, T, C), device=gy.device, requires_grad=False, dtype=torch.bfloat16, memory_format=torch.contiguous_format)#.uniform_(-100, 100)
                 gk = torch.empty((B, T, C), device=gy.device, requires_grad=False, dtype=torch.bfloat16, memory_format=torch.contiguous_format)#.uniform_(-100, 100)
                 gv = torch.empty((B, T, C), device=gy.device, requires_grad=False, dtype=torch.bfloat16, memory_format=torch.contiguous_format)#.uniform_(-100, 100)
                 gw = torch.empty((B, T, C), device=gy.device, requires_grad=False, dtype=torch.bfloat16, memory_format=torch.contiguous_format)#.uniform_(-100, 100)
                 gu = torch.empty((B, C), device=gy.device, requires_grad=False, dtype=torch.bfloat16, memory_format=torch.contiguous_format)#.uniform_(-100, 100)
                 #gs = torch.empty((B, H, C//H, C//H), device=gy.device, requires_grad=False, dtype=torch.bfloat16, memory_format=torch.contiguous_format)#.uniform_(-100, 100)
+                gr, gk, gv, gw, gu = gr.float(), gk.float(), gv.float(), gw.float(), gu.float()
                 if dtype == torch.bfloat16:
                     wkv6_cuda.backward_bf16(B, T, C, H, r, k, v, w, u, gy, gr, gk, gv, gw, gu)
                 elif dtype == torch.float16:

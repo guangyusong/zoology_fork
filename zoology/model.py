@@ -171,6 +171,10 @@ class LMBackbone(nn.Module):
         self.drop_f = nn.Dropout(config.resid_dropout)
         self.ln_f = nn.LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
         self.apply(partial(_init_weights, n_layers=config.n_layers,))
+        
+        # Initialize w_k_cache_a and w_k_cache_b
+        self.w_k_cache_a = nn.Linear(config.d_model, config.d_model // 2)
+        self.w_k_cache_b = nn.Linear(config.d_model + (config.d_model // 2), config.d_model)
 
     def forward(self, input_ids, position_ids=None):
         hidden_states = self.embeddings(
