@@ -174,3 +174,5 @@ cython_debug/
 # ./tests/
 # tests
 # /tests
+
+myenv
