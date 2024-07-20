@@ -23,7 +23,7 @@ For Mamba to work
 
 ```bash
 pip install wheel
-pip install mamba-ssm==1.2.0.post1
+pip install mamba_ssm==1.2.2
 pip install causal_conv1d==1.1.1
 ```
 
