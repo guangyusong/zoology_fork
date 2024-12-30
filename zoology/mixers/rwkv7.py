@@ -164,7 +164,7 @@ class RWKV_Tmix_x070(MyModule):
             self.key = nn.Linear(C, C, bias=False)
             self.value = nn.Linear(C, C, bias=False)
             self.output = nn.Linear(C, C, bias=False)
-            self.ln_x = nn.GroupNorm(H, C, eps=(1e-5)*(8**2)).to(torch.bfloat16) # !!! notice eps value !!!
+            self.ln_x = nn.GroupNorm(H, C, eps=(1e-5)*(HEAD_SIZE**2)).to(torch.bfloat16) # !!! notice eps value !!!
 
             # !!! initialize if you are using RWKV_Tmix_x070 in your code !!!
             # self.receptance.weight.data.uniform_(-0.5/(C**0.5), 0.5/(C**0.5))
@@ -242,8 +242,8 @@ class RWKV_CMix_x070(MyModule):
         self.value = nn.Linear(args.n_embd * 4, args.n_embd, bias=False)
 
         # !!! initialize if you are using RWKV_Tmix_x070 in your code !!!
-        # self.key.weight.data.uniform_(-0.5/(args.n_embd**0.5), 0.5/(args.n_embd**0.5))
-        # self.value.weight.data.zero_()
+        self.key.weight.data.uniform_(-0.5/(args.n_embd**0.5), 0.5/(args.n_embd**0.5))
+        self.value.weight.data.zero_()
 
     @MyFunction
     def forward(self, x):
@@ -307,7 +307,7 @@ class Block(nn.Module):
                 self.pos_emb_y = nn.Parameter(torch.zeros((args.my_pos_emb,1,args.n_embd)))
 
         if self.layer_idx == 0 and self.args.pre_ffn > 0:
-            self.ffnPre = RWKV_ChannelMix(args, 0)
+            self.ffnPre = RWKV_CMix_x070(args, 0)
         else:
             self.att = RWKV_Tmix_x070(args, layer_idx)
 
@@ -324,48 +324,15 @@ class Block(nn.Module):
             self.drop0 = nn.Dropout(p = args.dropout)
             self.drop1 = nn.Dropout(p = args.dropout)
 
-    if 'x070' in os.environ["RWKV_MY_TESTING"]:
-        def forward(self, x, v_first):
-            if self.layer_idx == 0:
-                x = self.ln0(x)
+    def forward(self, x, v_first):
+        if self.layer_idx == 0:
+            x = self.ln0(x)
 
-            x_attn, v_first = self.att(self.ln1(x), v_first)
-            x = x + x_attn
+        x_attn, v_first = self.att(self.ln1(x), v_first)
+        x = x + x_attn
 
-            x = x + self.ffn(self.ln2(x))
-            return x, v_first
-    else:
-        def forward(self, x, x_emb=None):
-            args = self.args
-            B, T, C = x.size()
-            if self.layer_idx == 0:
-                x = self.ln0(x)
-                if args.my_pos_emb > 0:
-                    pos_emb = (self.pos_emb_x + self.pos_emb_y).reshape(T+1, -1)[:-1,:]
-                    x = x + pos_emb
-
-            if self.args.dropout == 0:
-                if self.layer_idx == 0 and args.pre_ffn > 0:
-                    x = x + self.ffnPre(self.ln1(x))
-                else:
-                    x = x + self.att(self.ln1(x))
-                x = x + self.ffn(self.ln2(x))
-            else:
-                if self.layer_idx == 0 and args.pre_ffn > 0:
-                    x = self.drop0(x + self.ffnPre(self.ln1(x)))
-                else:
-                    x = self.drop0(x + self.att(self.ln1(x)))
-                x = self.drop1(x + self.ffn(self.ln2(x)))
-
-            if args.tiny_att_dim > 0 and self.layer_idx == args.tiny_att_layer:
-                xx = self.tiny_ln(x)
-                q = self.tiny_q(xx)[:, :T, :]
-                k = self.tiny_k(xx)[:, :T, :]
-                c = (q @ k.transpose(-2, -1)) * (args.tiny_att_dim ** (-0.5))
-                c = c.masked_fill(self.tiny_mask[:T, :T] == 0, 0)
-                x = x + c @ self.tiny_v(x_emb)
-            return x
-
+        x = x + self.ffn(self.ln2(x))
+        return x, v_first
 
 class L2Wrap(torch.autograd.Function):
     @staticmethod
@@ -523,19 +490,12 @@ class RWKV(pl.LightningModule):
                 else:
                     x = block(x, x_emb)
         else:
-            if 'x070' in os.environ["RWKV_MY_TESTING"]:
-                v_first = torch.empty_like(x)
-                for block in self.blocks:
-                    if args.grad_cp == 1:
-                        x, v_first = deepspeed.checkpointing.checkpoint(block, x, v_first)
-                    else:
-                        x, v_first = block(x, v_first)
-            else:
-                for block in self.blocks:
-                    if args.grad_cp == 1:
-                        x = deepspeed.checkpointing.checkpoint(block, x)
-                    else:
-                        x = block(x)
+            v_first = torch.empty_like(x)
+            for block in self.blocks:
+                if args.grad_cp == 1:
+                    x, v_first = deepspeed.checkpointing.checkpoint(block, x, v_first)
+                else:
+                    x, v_first = block(x, v_first)
 
         x = self.ln_out(x)
 
