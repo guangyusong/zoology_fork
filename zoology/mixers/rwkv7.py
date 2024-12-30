@@ -173,7 +173,7 @@ class RWKV_Tmix_x070(MyModule):
             # self.output.weight.data.zero_()
 
     @MyFunction
-    def forward(self, x, v_first: Optional[torch.Tensor] = None):
+    def forward(self, x, v_first):
         B, T, C = x.size()
         H = self.n_head
         N = self.head_size
@@ -192,17 +192,11 @@ class RWKV_Tmix_x070(MyModule):
         k = self.key(xk).contiguous()
         v = self.value(xv).contiguous()
         
-        # Only clone v_first if it's None (first pass)
-        if v_first is None:
-            v_first = v.detach().clone()  # detach to prevent gradient flow through state
-            new_v = v
+        if self.layer_idx == 0:
+            v_first = v  # store the v of the first layer
         else:
-            # Use v_first to modify current v
-            new_v = v + (v_first - v) * torch.sigmoid(self.v0 + (xv @ self.v1) @ self.v2)
-        
-        # Update v_first for next pass with the last token's values
-        v_first = new_v[:, -1:, :].detach().clone()  # only keep last position
-                    
+            v = v + (v_first - v) * torch.sigmoid(self.v0 + (xv @ self.v1) @ self.v2)  # add value residual
+                        
         a = torch.sigmoid(self.a0 + (xa @ self.a1) @ self.a2).contiguous()
         g = torch.sigmoid(xg @ self.g1) @ self.g2
 
@@ -216,14 +210,14 @@ class RWKV_Tmix_x070(MyModule):
         r = r.to(torch.bfloat16)
         w = w.to(torch.bfloat16)
         k = k.to(torch.bfloat16)
-        new_v = new_v.to(torch.bfloat16)
+        v = v.to(torch.bfloat16)
         kk = kk.to(torch.bfloat16)
         a = a.to(torch.bfloat16)
 
-        x = RUN_CUDA_RWKV7g(r, w, k, new_v, -kk, kk*a)
+        x = RUN_CUDA_RWKV7g(r, w, k, v, -kk, kk*a)
         
         x = self.ln_x(x.view(B * T, C).to(torch.bfloat16)).view(B, T, C)
-        x = x + ((r.view(B,T,H,-1)*k.view(B,T,H,-1)*self.r_k.to(torch.bfloat16)).sum(dim=-1, keepdim=True) * new_v.view(B,T,H,-1)).view(B,T,C)
+        x = x + ((r.view(B,T,H,-1)*k.view(B,T,H,-1)*self.r_k.to(torch.bfloat16)).sum(dim=-1, keepdim=True) * v.view(B,T,H,-1)).view(B,T,C)
         x = self.output(x * g)
         
         return x, v_first
