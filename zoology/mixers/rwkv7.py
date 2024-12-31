@@ -164,7 +164,7 @@ class RWKV_Tmix_x070(MyModule):
             self.key = nn.Linear(C, C, bias=False)
             self.value = nn.Linear(C, C, bias=False)
             self.output = nn.Linear(C, C, bias=False)
-            self.ln_x = nn.GroupNorm(H, C, eps=(1e-5)*(HEAD_SIZE**2)).to(torch.bfloat16) # !!! notice eps value !!!
+            self.ln_x = nn.GroupNorm(H, C, eps=(1e-5)*(HEAD_SIZE)).to(torch.bfloat16) # !!! notice eps value !!!
 
             # !!! initialize if you are using RWKV_Tmix_x070 in your code !!!
             # self.receptance.weight.data.uniform_(-0.5/(C**0.5), 0.5/(C**0.5))
@@ -180,12 +180,15 @@ class RWKV_Tmix_x070(MyModule):
         
         x = x.contiguous().to(torch.bfloat16)
         
-        xr = x + (self.time_shift(x) - x) * self.x_r
-        xw = x + (self.time_shift(x) - x) * self.x_w
-        xk = x + (self.time_shift(x) - x) * self.x_k
-        xv = x + (self.time_shift(x) - x) * self.x_v
-        xa = x + (self.time_shift(x) - x) * self.x_a
-        xg = x + (self.time_shift(x) - x) * self.x_g
+        time_shifted_x = self.time_shift(x)
+        x_diff = time_shifted_x - x
+        
+        xr = x + x_diff * self.x_r
+        xw = x + x_diff * self.x_w
+        xk = x + x_diff * self.x_k
+        xv = x + x_diff * self.x_v
+        xa = x + x_diff * self.x_a
+        xg = x + x_diff * self.x_g
 
         r = self.receptance(xr).contiguous()
         w = -F.softplus(-(self.w0 + torch.tanh(xw @ self.w1) @ self.w2)) - 0.5
