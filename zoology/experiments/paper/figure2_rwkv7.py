@@ -4,7 +4,7 @@ from zoology.config import TrainConfig, ModelConfig, DataConfig, LoggerConfig
 
 
 sweep_id = uuid.uuid4().hex[:6]
-sweep_name = "monarch_attn" + sweep_id
+sweep_name = "figure2" + sweep_id
 
 
 VOCAB_SIZE = 8_192
@@ -32,7 +32,7 @@ for input_seq_len, num_kv_pairs in [
         vocab_size=VOCAB_SIZE,
         input_seq_len=input_seq_len,
         batch_size=batch_size,
-        cache_dir="/var/cr05_data/sabri_data/zg-synthetics",
+        # cache_dir="", # TODO: add a directory to cache your results!
         builder={
             "name": "zoology.data.associative_recall.multiquery_ar",
             "kwargs": {
@@ -72,12 +72,6 @@ for input_seq_len, num_kv_pairs in [
                         "l_max": input_seq_len,
                     },
                 ),
-                "rwkv5": dict(
-                    name="zoology.mixers.rwkv5.RWKV_TimeMix_RWKV5",
-                    kwargs={
-                        "l_max": input_seq_len,
-                    },
-                ),
                 "rwkv6": dict(
                     name="zoology.mixers.rwkv6.RWKV_Tmix_x060",
                     kwargs={
@@ -96,15 +90,6 @@ for input_seq_len, num_kv_pairs in [
                         "l_max": input_seq_len,
                         # pass a list of kernel sizes for each of four layers
                         "kernel_size": [3, -1, 3, -1]
-                    }
-                ),
-                "base_conv_explicit": dict(
-                    name="zoology.mixers.base_conv.BaseConv",
-                    kwargs={
-                        "l_max": input_seq_len,
-                        # pass a list of kernel sizes for each of four layers
-                        "kernel_size": [3, -1, 3, -1],
-                        "implicit_long_conv": True
                     }
                 ),
                 "h3": dict(
@@ -148,17 +133,16 @@ for input_seq_len, num_kv_pairs in [
             }
 
             for sequence_mixer in [
-                "attention",
-                "hyena",
-                "rwkv",
-                "rwkv5",
-                "rwkv6",
-                "base_conv"
-                "base_conv_explicit",
-                "h3"
-                "base_conv_explicit"
-                "based",
-                "mamba"
+                # "attention",
+                # "hyena",
+                # "rwkv",
+                # "rwkv5",
+                # "rwkv6"
+                "rwkv7"
+                # "base_conv",
+                # "h3",
+                # "based",
+                # "mamba"
             ]:
 
                 if 'mamba' in sequence_mixer:
@@ -168,7 +152,7 @@ for input_seq_len, num_kv_pairs in [
 
                 model = ModelConfig(
                     d_model=d_model,
-                    n_layers=2,
+                    n_layers=4 if sequence_mixer != "attention" else 2,
                     block_type=block_type,
                     max_position_embeddings=input_seq_len if sequence_mixer == "attention" else 0,
                     vocab_size=VOCAB_SIZE,
@@ -182,7 +166,7 @@ for input_seq_len, num_kv_pairs in [
                     max_epochs=64,
                     run_id=f"{sequence_mixer}-seqlen{input_seq_len}-dmodel{d_model}-lr{lr}-kv{num_kv_pairs}",
                     logger=LoggerConfig(
-                        project_name="zoology",
+                        project_name="zoology-rwkv-7",
                         entity="gpt6"
                     )
 
