@@ -167,10 +167,10 @@ class RWKV_Tmix_x070(MyModule):
             self.ln_x = nn.GroupNorm(H, C, eps=(1e-5)*(HEAD_SIZE)).to(torch.bfloat16) # !!! notice eps value !!!
 
             # !!! initialize if you are using RWKV_Tmix_x070 in your code !!!
-            # self.receptance.weight.data.uniform_(-0.5/(C**0.5), 0.5/(C**0.5))
-            # self.key.weight.data.uniform_(-0.05/(C**0.5), 0.05/(C**0.5))
-            # self.value.weight.data.uniform_(-0.5/(C**0.5), 0.5/(C**0.5))
-            # self.output.weight.data.zero_()
+            self.receptance.weight.data.uniform_(-0.5/(C**0.5), 0.5/(C**0.5))
+            self.key.weight.data.uniform_(-0.05/(C**0.5), 0.05/(C**0.5))
+            self.value.weight.data.uniform_(-0.5/(C**0.5), 0.5/(C**0.5))
+            self.output.weight.data.zero_()
 
     @MyFunction
     def forward(self, x, v_first):
